@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>知识笔记</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="知识分类">
+        <header class="brand">
+          <div>
+            <p class="eyebrow">KnowledgeNotebook</p>
+            <h1>知识笔记</h1>
+          </div>
+          <a
+            class="repo-link"
+            href="https://github.com/skywalkerjack/KnowledgeNotebook"
+            target="_blank"
+            rel="noreferrer"
+            title="打开 GitHub 仓库"
+            aria-label="打开 GitHub 仓库"
+          >
+            GitHub
+          </a>
+        </header>
+
+        <label class="search-box">
+          <span>搜索</span>
+          <input id="searchInput" type="search" placeholder="输入标题或分类" autocomplete="off" />
+        </label>
+
+        <nav id="categoryList" class="category-list" aria-label="分类列表"></nav>
+      </aside>
+
+      <main class="content">
+        <section class="note-list-panel" aria-label="笔记列表">
+          <div class="panel-heading">
+            <div>
+              <p id="categoryMeta" class="eyebrow">正在连接 GitHub</p>
+              <h2 id="categoryTitle">加载笔记</h2>
+            </div>
+            <button id="refreshButton" class="ghost-button" type="button">刷新</button>
+          </div>
+          <div id="statusMessage" class="status-message" role="status"></div>
+          <div id="noteList" class="note-list"></div>
+        </section>
+
+        <article class="reader" aria-live="polite">
+          <div id="readerEmpty" class="reader-empty">
+            <p class="eyebrow">最新内容来自 GitHub</p>
+            <h2>选择一篇笔记开始阅读</h2>
+            <p>每次打开网站都会重新遍历仓库目录，点击笔记时读取仓库里的 Markdown 原文。</p>
+          </div>
+          <div id="readerLoading" class="reader-loading hidden">正在读取笔记...</div>
+          <div id="readerError" class="reader-error hidden"></div>
+          <div id="articleMeta" class="article-meta hidden"></div>
+          <div id="articleBody" class="markdown-body"></div>
+        </article>
+      </main>
+    </div>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
