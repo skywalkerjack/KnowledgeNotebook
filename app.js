@@ -10,6 +10,7 @@ const state = {
   currentCategory: "",
   currentNotePath: "",
   search: "",
+  catalogOpen: false,
 };
 
 const els = {
@@ -20,6 +21,8 @@ const els = {
   statusMessage: document.querySelector("#statusMessage"),
   noteList: document.querySelector("#noteList"),
   refreshButton: document.querySelector("#refreshButton"),
+  catalogToggle: document.querySelector("#catalogToggle"),
+  reader: document.querySelector(".reader"),
   readerEmpty: document.querySelector("#readerEmpty"),
   readerLoading: document.querySelector("#readerLoading"),
   readerError: document.querySelector("#readerError"),
@@ -39,6 +42,19 @@ function init() {
     loadRepository();
   });
 
+  els.catalogToggle.addEventListener("click", () => {
+    setCatalogOpen(!state.catalogOpen);
+  });
+
+  window.matchMedia("(min-width: 681px)").addEventListener("change", (event) => {
+    if (event.matches) {
+      setCatalogOpen(true);
+    } else {
+      setCatalogOpen(false);
+    }
+  });
+
+  setCatalogOpen(window.matchMedia("(min-width: 681px)").matches);
   loadRepository();
 }
 
@@ -122,8 +138,21 @@ function stripMarkdownExtension(fileName) {
 }
 
 function render() {
+  renderCatalogDisclosure();
   renderCategories();
   renderNotes();
+}
+
+function setCatalogOpen(isOpen) {
+  state.catalogOpen = isOpen;
+  document.body.classList.toggle("catalog-open", isOpen);
+  document.body.classList.toggle("catalog-collapsed", !isOpen);
+  renderCatalogDisclosure();
+}
+
+function renderCatalogDisclosure() {
+  els.catalogToggle.textContent = state.catalogOpen ? "收起目录" : "展开目录";
+  els.catalogToggle.setAttribute("aria-expanded", String(state.catalogOpen));
 }
 
 function renderCategories() {
@@ -210,6 +239,9 @@ async function loadNote(note, categoryName) {
   state.currentNotePath = note.path;
   state.currentCategory = categoryName;
   render();
+  if (window.matchMedia("(max-width: 680px)").matches) {
+    setCatalogOpen(false);
+  }
 
   els.readerEmpty.classList.add("hidden");
   els.readerError.classList.add("hidden");
@@ -231,6 +263,9 @@ async function loadNote(note, categoryName) {
     `;
     els.articleMeta.classList.remove("hidden");
     els.articleBody.innerHTML = renderMarkdown(markdown);
+    if (window.matchMedia("(max-width: 680px)").matches) {
+      els.reader.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   } catch (error) {
     console.error(error);
     els.readerError.textContent = `读取笔记失败：${error.message}。`;
