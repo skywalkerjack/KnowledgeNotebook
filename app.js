@@ -212,7 +212,6 @@ function renderNotes() {
     button.className = `note-button${note.path === state.currentNotePath ? " active" : ""}`;
     button.innerHTML = `
       <span class="note-title">${highlight(note.title, state.search)}</span>
-      <span class="note-path">${escapeHtml(note.path)}</span>
     `;
     button.addEventListener("click", () => loadNote(note, selected.name));
     els.noteList.appendChild(button);
