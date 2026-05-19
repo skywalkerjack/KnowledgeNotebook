@@ -4,6 +4,12 @@ const BRANCH = "main";
 const NOTE_ROOT = "content";
 const TREE_API = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${BRANCH}?recursive=1`;
 const RAW_BASE = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}`;
+const CDN_BASE = `https://cdn.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}@${BRANCH}`;
+const BLOB_API_BASE = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/blobs`;
+const NOTE_CACHE_PREFIX = "knowledge-note:";
+const REQUEST_TIMEOUT_MS = 8000;
+
+const noteCache = new Map();
 
 const state = {
   categories: [],
@@ -249,12 +255,7 @@ async function loadNote(note, categoryName) {
   els.readerLoading.classList.remove("hidden");
 
   try {
-    const response = await fetch(`${toRawUrl(note.path)}?t=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Markdown 原文返回 ${response.status}`);
-    }
-
-    const markdown = await response.text();
+    const markdown = await loadMarkdown(note);
     els.articleMeta.innerHTML = `
       <strong>${escapeHtml(categoryName)}</strong>
       <span> / </span>
@@ -274,8 +275,112 @@ async function loadNote(note, categoryName) {
   }
 }
 
+async function loadMarkdown(note) {
+  const cacheKey = `${NOTE_CACHE_PREFIX}${note.sha}`;
+  const memoryValue = noteCache.get(cacheKey);
+  if (memoryValue) {
+    return memoryValue;
+  }
+
+  const storedValue = readCachedNote(cacheKey);
+  if (storedValue) {
+    noteCache.set(cacheKey, storedValue);
+    return storedValue;
+  }
+
+  const loaders = [
+    () => fetchBlobMarkdown(note.sha),
+    () => fetchText(toCdnUrl(note.path), "jsDelivr CDN"),
+    () => fetchText(toRawUrl(note.path), "GitHub raw"),
+  ];
+  const errors = [];
+
+  for (const loader of loaders) {
+    try {
+      const markdown = await loader();
+      noteCache.set(cacheKey, markdown);
+      writeCachedNote(cacheKey, markdown);
+      return markdown;
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
+  throw new Error(errors.join("；"));
+}
+
+async function fetchBlobMarkdown(sha) {
+  const response = await fetchWithTimeout(`${BLOB_API_BASE}/${sha}`, {
+    headers: { Accept: "application/vnd.github+json" },
+    cache: "force-cache",
+  });
+
+  if (!response.ok) {
+    throw new Error(`GitHub Blob API 返回 ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data.content || data.encoding !== "base64") {
+    throw new Error("GitHub Blob API 返回内容格式异常");
+  }
+
+  return decodeBase64Utf8(data.content);
+}
+
+async function fetchText(url, sourceName) {
+  const response = await fetchWithTimeout(url, { cache: "force-cache" });
+  if (!response.ok) {
+    throw new Error(`${sourceName} 返回 ${response.status}`);
+  }
+
+  return response.text();
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("请求超时");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function decodeBase64Utf8(value) {
+  const normalized = value.replace(/\s/g, "");
+  const binary = window.atob(normalized);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function readCachedNote(cacheKey) {
+  try {
+    return window.localStorage.getItem(cacheKey);
+  } catch (error) {
+    return "";
+  }
+}
+
+function writeCachedNote(cacheKey, markdown) {
+  try {
+    window.localStorage.setItem(cacheKey, markdown);
+  } catch (error) {
+    // localStorage can be full or disabled; memory cache still covers this session.
+  }
+}
+
 function toRawUrl(path) {
   return `${RAW_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function toCdnUrl(path) {
+  return `${CDN_BASE}/${path.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 function resetReader() {
